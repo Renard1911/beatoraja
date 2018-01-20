@@ -57,7 +57,7 @@ public class JudgeManager {
 	/**
 	 * 判定差時間(ms , +は早押しで-は遅押し)
 	 */
-	private int judgefast;
+	private int[] judgefast;
 	/**
 	 * 処理中のLN
 	 */
@@ -105,6 +105,10 @@ public class JudgeManager {
 	private boolean[] combocond;
 	
 	private MissCondition miss;
+	/**
+     * 各判定毎のノートの判定を消失するかどうか。PG, GR, GD, BD, PR, MSの順
+     */
+    private boolean[] judgeVanish;
 
 	private int prevtime;
 
@@ -126,6 +130,7 @@ public class JudgeManager {
 		prevtime = 0;
 		judgenow = new int[((PlaySkin) main.getSkin()).getJudgeregion()];
 		judgecombo = new int[((PlaySkin) main.getSkin()).getJudgeregion()];
+		judgefast = new int[((PlaySkin) main.getSkin()).getJudgeregion()];
 		score = new IRScoreData(model.getMode());
 		score.setNotes(model.getTotalNotes());
 		score.setSha256(model.getSHA256());
@@ -136,6 +141,7 @@ public class JudgeManager {
 		JudgeProperty rule = BMSPlayerRule.getBMSPlayerRule(model.getMode()).judge;
 		combocond = rule.combo;
 		miss = rule.miss;
+		judgeVanish = rule.judgeVanish;
 
 		keyassign = main.getLaneProperty().getKeyLaneAssign();
 		offset = main.getLaneProperty().getLaneSkinOffset();
@@ -165,8 +171,8 @@ public class JudgeManager {
 				constraint = 1;
 			}
 		}
-		njudge = rule.getNoteJudge(judgerank, constraint);
-		cnendjudge = rule.getLongNoteEndJudge(judgerank, constraint);
+		njudge = rule.getNoteJudge(judgerank, constraint, model.getMode() == Mode.POPN_9K);
+		cnendjudge = rule.getLongNoteEndJudge(judgerank, constraint, model.getMode() == Mode.POPN_9K);
 		sjudge = rule.getScratchJudge(judgerank, constraint);
 		scnendjudge = rule.getLongScratchEndJudge(judgerank, constraint);
 		judgestart = judgeend = 0;
@@ -544,7 +550,7 @@ public class JudgeManager {
 	private final int[] COMBO_TIMER = { TIMER_COMBO_1P, TIMER_COMBO_2P, TIMER_COMBO_3P };
 
 	private void update(int lane, Note n, int time, int judge, int fast) {
-		if (judge < 5) {
+		if (judgeVanish[judge]) {
 			n.setState(judge + 1);
 		}
 		if(miss == MissCondition.ONE && judge == 4 && n.getPlayTime() != 0) {
@@ -552,8 +558,6 @@ public class JudgeManager {
 		}
 		n.setPlayTime(fast);
 		score.addJudgeCount(judge, fast >= 0, 1);
-		
-		judgefast = fast;
 		
 		if (combocond[judge] && judge < 5) {
 			combo++;
@@ -582,11 +586,12 @@ public class JudgeManager {
 			main.getTimer()[COMBO_TIMER[lane / (lanelength / judgenow.length)]] = main.getNowTime();
 			judgenow[lane / (lanelength / judgenow.length)] = judge + 1;
 			judgecombo[lane / (lanelength / judgenow.length)] = main.getJudgeManager().getCourseCombo();
+			judgefast[lane / (lanelength / judgenow.length)] = fast;
 		}
 		main.update(lane, judge, time, fast);
 	}
 
-	public int getRecentJudgeTiming() {
+	public int[] getRecentJudgeTiming() {
 		return judgefast;
 	}
 
